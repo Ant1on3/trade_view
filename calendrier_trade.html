@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calendrier des gains</title>
+<style>
+:root {
+  --surface-0: #f4f3f0; --surface-1: #fcfcfb; --border: #e2e1dc; --grid: #ebeae6;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7974;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #8b5cd6; --s6: #e87ba4;
+  --up: #1baf7a; --down: #e34948; --up-text: #0b7d55; --down-text: #c42f2e; --accent: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface-0: #111110; --surface-1: #1a1a19; --border: #2e2e2c; --grid: #262624;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #a07ee6; --s6: #d55181;
+    --up: #199e70; --down: #e66767; --up-text: #3ccf95; --down-text: #f08080; --accent: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  --surface-0: #111110; --surface-1: #1a1a19; --border: #2e2e2c; --grid: #262624;
+  --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #a07ee6; --s6: #d55181;
+  --up: #199e70; --down: #e66767; --up-text: #3ccf95; --down-text: #f08080; --accent: #3987e5;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface-0); color: var(--text-primary);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+.muted { color: var(--text-muted); font-size: 12px; }
+.pos { color: var(--up-text); } .neg { color: var(--down-text); }
+.num { font-variant-numeric: tabular-nums; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary); font: inherit; font-size: 12px; }
+.chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.chip[aria-pressed="false"] { opacity: .45; }
+.chip[aria-pressed="false"] i { background: transparent !important; outline: 1px solid var(--text-muted); }
+
+.nav { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; }
+.nav button { font: inherit; font-size: 18px; width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); }
+.nav button:disabled { opacity: .3; cursor: default; }
+.nav strong { font-size: 17px; min-width: 150px; text-align: center; text-transform: capitalize; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.tile .big { font-size: 20px; font-weight: 600; }
+
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, 1.05fr); gap: 4px; }
+.dow { font-size: 11px; color: var(--text-muted); text-align: center; padding: 2px 0; text-transform: uppercase; letter-spacing: .04em; }
+.day { position: relative; min-height: 92px; border-radius: 8px; padding: 6px 7px; background: var(--surface-1);
+  border: 1px solid var(--border); text-align: left; font: inherit; color: inherit; cursor: default; overflow: hidden; }
+.day.out { visibility: hidden; }
+.day.has { cursor: pointer; }
+.day.has:hover, .day.sel { border-color: var(--accent); }
+.day.sel { box-shadow: 0 0 0 1px var(--accent) inset; }
+.day.today .d { color: var(--accent); font-weight: 700; }
+.day .tint { position: absolute; inset: 0; pointer-events: none; }
+.day > *:not(.tint) { position: relative; }
+.day .d { font-size: 12px; color: var(--text-muted); }
+.day .tot { font-weight: 600; font-size: 14px; margin: 1px 0 3px; white-space: nowrap; }
+.short { display: none; }
+.day .rows { font-size: 11px; line-height: 1.35; }
+.day .rows div { display: flex; justify-content: space-between; gap: 4px; white-space: nowrap; }
+.day .rows span:first-child { overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
+.day .rows i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+.week { background: transparent; border-style: dashed; }
+.week .d { font-weight: 600; }
+
+#detail { margin-top: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--grid); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 500; color: var(--text-muted); font-size: 12px; }
+tr:last-child td { border-bottom: 0; }
+td i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.tbl { overflow-x: auto; }
+.section { margin-top: 18px; }
+
+@media (max-width: 760px) {
+  .day { min-height: 54px; padding: 4px; }
+  .day .rows, .day .full { display: none; }
+  .day .short { display: inline; }
+  .day .tot { font-size: 11px; }
+  .cal { gap: 3px; }
+}
+@media (max-width: 420px) {
+  .day .tot { font-size: 10px; letter-spacing: -.02em; }
+}
+</style>
+</head>
+<body><a href="./" style="position:fixed;top:8px;right:12px;z-index:99;font:13px system-ui,sans-serif;color:inherit;opacity:.7">← menu</a>
+<main>
+  <h1 id="title"></h1>
+  <div class="muted" id="meta"></div>
+  <div class="chips" id="chips"></div>
+  <div class="nav">
+    <button id="prev" aria-label="Mois précédent">‹</button>
+    <strong id="month"></strong>
+    <button id="next" aria-label="Mois suivant">›</button>
+  </div>
+  <div class="tiles" id="tiles"></div>
+  <div class="cal" id="cal"></div>
+  <div class="card" id="detail"></div>
+  <div class="card section">
+    <h2>Bilan du mois par stratégie</h2>
+    <div class="tbl" id="summary"></div>
+  </div>
+</main>
+<script>
+const DATA = {"title": "Calendrier Trade (Liquid, intraday)", "unit": " $", "ops": "trade(s) clôturé(s)", "capital": 1000.0, "books": [{"key": "breakout", "label": "Cassure Donchian"}, {"key": "discretion", "label": "Discrétionnaire (Claude)"}, {"key": "mtf", "label": "Tendance multi-unités"}, {"key": "orb", "label": "Range d'ouverture US"}, {"key": "reversion", "label": "Retour à la moyenne"}, {"key": "trend", "label": "Tendance EMA/ADX"}], "days": {"2026-10-23": {"breakout": -111.29, "discretion": -15.18, "orb": -36.25, "reversion": 28.07, "trend": -156.73}, "2026-10-24": {"breakout": -80.66, "discretion": 0.0, "orb": 0.0, "reversion": -16.65, "trend": -90.9}, "2026-10-25": {"breakout": -23.47, "discretion": 0.0, "orb": 0.0, "reversion": -29.25, "trend": -8.41}, "2026-10-26": {"breakout": -276.07, "discretion": 0.57, "mtf": 0.0, "orb": 0.0, "reversion": 218.46, "trend": -118.49}}, "counts": {"2026-10-23": {"breakout": 15, "discretion": 1, "orb": 5, "reversion": 6, "trend": 10}, "2026-10-24": {"breakout": 22, "reversion": 7, "trend": 8}, "2026-10-25": {"breakout": 24, "reversion": 8, "trend": 7}, "2026-10-26": {"breakout": 28, "discretion": 1, "reversion": 12, "trend": 11}}, "generated": "26/10/2026 14:34"};
+const $ = id => document.getElementById(id);
+const nf2 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const nf1 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const signed = (v, u = DATA.unit) => (v > 0 ? "+" : v < 0 ? "−" : "") + nf2.format(Math.abs(v)) + u;
+const compact = v => (v > 0 ? "+" : v < 0 ? "−" : "") + (Math.abs(v) >= 1000 ? nf1.format(Math.abs(v) / 1000) + "k" : Math.round(Math.abs(v)));
+const both = v => `<span class="full">${signed(v)}</span><span class="short">${compact(v)}</span>`;
+const cls = v => v > 0 ? "pos" : v < 0 ? "neg" : "";
+const color = i => `var(--s${(i % 6) + 1})`;
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fday = s => new Date(s + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+const books = DATA.books.map((b, i) => ({ ...b, color: color(i) }));
+const dayKeys = Object.keys(DATA.days).sort();
+const active = new Set(books.map(b => b.key));
+const todayKey = iso(new Date());
+let selected = dayKeys[dayKeys.length - 1] || null;
+let view = selected ? new Date(selected + "T12:00:00") : new Date();
+view = new Date(view.getFullYear(), view.getMonth(), 1);
+const first = dayKeys.length ? new Date(dayKeys[0] + "T12:00:00") : view;
+const last = dayKeys.length ? new Date(dayKeys[dayKeys.length - 1] + "T12:00:00") : view;
+const monthIdx = d => d.getFullYear() * 12 + d.getMonth();
+
+document.title = DATA.title;
+$("title").textContent = DATA.title;
+$("meta").textContent = `P&L journalier par stratégie (latent inclus, fin de journée heure de Paris) · page générée le ${DATA.generated} · portefeuilles virtuels, aucun ordre réel`;
+
+function dayTotal(key) {
+  const d = DATA.days[key];
+  if (!d) return null;
+  let t = 0, any = false;
+  for (const b of books) if (active.has(b.key) && b.key in d) { t += d[b.key]; any = true; }
+  return any ? t : null;
+}
+
+function renderChips() {
+  const all = active.size === books.length;
+  $("chips").innerHTML = `<button class="chip" data-k="*" aria-pressed="${all}">Toutes</button>` +
+    books.map(b => `<button class="chip" data-k="${b.key}" aria-pressed="${active.has(b.key)}"><i style="background:${b.color}"></i>${b.label}</button>`).join("");
+  $("chips").querySelectorAll(".chip").forEach(el => el.onclick = () => {
+    const k = el.dataset.k;
+    if (k === "*") { if (all) active.clear(); else books.forEach(b => active.add(b.key)); }
+    else active.has(k) ? active.delete(k) : active.add(k);
+    render();
+  });
+}
+
+function monthKeys() {
+  const y = view.getFullYear(), m = view.getMonth();
+  return dayKeys.filter(k => { const d = new Date(k + "T12:00:00"); return d.getFullYear() === y && d.getMonth() === m; });
+}
+
+function renderTiles(keys) {
+  const tots = keys.map(k => [k, dayTotal(k)]).filter(([, v]) => v !== null);
+  const sum = tots.reduce((a, [, v]) => a + v, 0);
+  const win = tots.filter(([, v]) => v > 0).length, loss = tots.filter(([, v]) => v < 0).length;
+  const best = tots.reduce((a, x) => !a || x[1] > a[1] ? x : a, null);
+  const worst = tots.reduce((a, x) => !a || x[1] < a[1] ? x : a, null);
+  const cap = DATA.capital * Math.max(active.size, 1);
+  const short = k => new Date(k + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  $("tiles").innerHTML = [
+    ["P&L du mois", `<span class="${cls(sum)}">${signed(sum)}</span>`, `${signed(sum / cap * 100, " %")} du capital sélectionné`],
+    ["Jours gagnants", `${win} / ${tots.length}`, tots.length ? `${nf1.format(win / tots.length * 100)} % · ${loss} perdant(s)` : "aucun jour"],
+    ["Meilleur jour", best ? `<span class="${cls(best[1])}">${signed(best[1])}</span>` : "—", best ? short(best[0]) : ""],
+    ["Pire jour", worst ? `<span class="${cls(worst[1])}">${signed(worst[1])}</span>` : "—", worst ? short(worst[0]) : ""],
+  ].map(([l, v, s]) => `<div class="card tile"><div class="muted">${l}</div><div class="big num">${v}</div><div class="muted">${s}</div></div>`).join("");
+}
+
+function tint(v, scale) {
+  if (v === null || v === 0 || !scale) return "";
+  const a = Math.round(8 + 32 * Math.min(1, Math.abs(v) / scale));
+  return `<span class="tint" style="background:color-mix(in srgb, var(${v > 0 ? "--up" : "--down"}) ${a}%, transparent)"></span>`;
+}
+
+function renderCalendar(keys) {
+  const y = view.getFullYear(), m = view.getMonth();
+  const scale = Math.max(0, ...keys.map(k => Math.abs(dayTotal(k) || 0)));
+  const offset = (new Date(y, m, 1).getDay() + 6) % 7;            // lundi = 0
+  const nDays = new Date(y, m + 1, 0).getDate();
+  const cells = Math.ceil((offset + nDays) / 7) * 7;
+  let html = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim", "Semaine"].map(d => `<div class="dow">${d}</div>`).join("");
+  let week = 0, weekAny = false, weekNo = 1;
+  for (let i = 0; i < cells; i++) {
+    const dn = i - offset + 1;
+    if (dn < 1 || dn > nDays) html += `<div class="day out"></div>`;
+    else {
+      const k = iso(new Date(y, m, dn)), d = DATA.days[k], t = dayTotal(k);
+      if (t !== null) { week += t; weekAny = true; }
+      const rows = d ? books.filter(b => active.has(b.key) && b.key in d && d[b.key] !== 0)
+        .map(b => `<div><span><i style="background:${b.color}"></i>${b.label}</span><span class="num ${cls(d[b.key])}">${signed(d[b.key], "")}</span></div>`).join("") : "";
+      const c = ["day", t !== null ? "has" : "", k === selected ? "sel" : "", k === todayKey ? "today" : ""].join(" ");
+      html += `<button class="${c}" data-k="${k}" ${t === null ? "disabled" : ""}>${tint(t, scale)}<div class="d">${dn}</div>` +
+        (t !== null ? `<div class="tot num ${cls(t)}">${both(t)}</div><div class="rows">${rows}</div>` : "") + `</button>`;
+    }
+    if (i % 7 === 6) {
+      html += `<div class="day week"><div class="d">S${weekNo++}</div>` +
+        (weekAny ? `<div class="tot num ${cls(week)}">${both(week)}</div>` : "") + `</div>`;
+      week = 0; weekAny = false;
+    }
+  }
+  $("cal").innerHTML = html;
+  $("cal").querySelectorAll(".day.has").forEach(el => el.onclick = () => { selected = el.dataset.k; render(); });
+}
+
+function renderDetail() {
+  const d = selected && DATA.days[selected];
+  if (!d) { $("detail").innerHTML = `<span class="muted">Cliquez sur un jour pour voir le détail par stratégie.</span>`; return; }
+  const counts = DATA.counts[selected] || {};
+  const rows = books.filter(b => active.has(b.key) && b.key in d).sort((a, b) => d[b.key] - d[a.key]);
+  const t = dayTotal(selected);
+  $("detail").innerHTML = `<h2 style="text-transform:capitalize">${fday(selected)}</h2><div class="tbl"><table>
+    <tr><th>Stratégie</th><th>P&L</th><th>% du capital</th><th>${DATA.ops}</th></tr>
+    ${rows.map(b => `<tr><td><i style="background:${b.color}"></i>${b.label}</td><td class="num ${cls(d[b.key])}">${signed(d[b.key])}</td>
+      <td class="num ${cls(d[b.key])}">${signed(d[b.key] / DATA.capital * 100, " %")}</td><td class="num">${counts[b.key] || 0}</td></tr>`).join("")}
+    <tr><td><b>Total</b></td><td class="num ${cls(t)}"><b>${signed(t ?? 0)}</b></td><td></td>
+      <td class="num">${rows.reduce((a, b) => a + (counts[b.key] || 0), 0)}</td></tr></table></div>`;
+}
+
+function renderSummary(keys) {
+  const rows = books.filter(b => active.has(b.key)).map(b => {
+    const v = keys.map(k => DATA.days[k]?.[b.key]).filter(x => x !== undefined);
+    const ops = keys.reduce((a, k) => a + ((DATA.counts[k] || {})[b.key] || 0), 0);
+    return { b, v, sum: v.reduce((a, x) => a + x, 0), ops };
+  }).filter(r => r.v.length).sort((a, b) => b.sum - a.sum);
+  if (!rows.length) { $("summary").innerHTML = `<span class="muted">Aucune donnée ce mois-ci.</span>`; return; }
+  $("summary").innerHTML = `<table><tr><th>Stratégie</th><th>P&L</th><th>Jours +</th><th>Jours −</th><th>Meilleur</th><th>Pire</th><th>${DATA.ops}</th></tr>
+    ${rows.map(r => `<tr><td><i style="background:${r.b.color}"></i>${r.b.label}</td>
+      <td class="num ${cls(r.sum)}"><b>${signed(r.sum)}</b></td>
+      <td class="num">${r.v.filter(x => x > 0).length}</td><td class="num">${r.v.filter(x => x < 0).length}</td>
+      <td class="num ${cls(Math.max(...r.v))}">${signed(Math.max(...r.v))}</td>
+      <td class="num ${cls(Math.min(...r.v))}">${signed(Math.min(...r.v))}</td><td class="num">${r.ops}</td></tr>`).join("")}</table>`;
+}
+
+function render() {
+  const keys = monthKeys();
+  $("month").textContent = view.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  $("prev").disabled = monthIdx(view) <= monthIdx(first);
+  $("next").disabled = monthIdx(view) >= monthIdx(last);
+  renderChips(); renderTiles(keys); renderCalendar(keys); renderDetail(); renderSummary(keys);
+}
+$("prev").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); };
+$("next").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); };
+render();
+</script>
+</body>
+</html>
